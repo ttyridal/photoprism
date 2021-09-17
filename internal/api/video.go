@@ -9,6 +9,7 @@ import (
 	"github.com/photoprism/photoprism/internal/photoprism"
 	"github.com/photoprism/photoprism/internal/query"
 	"github.com/photoprism/photoprism/internal/video"
+	"github.com/photoprism/photoprism/pkg/fs"
 	"github.com/photoprism/photoprism/pkg/txt"
 )
 
@@ -61,7 +62,8 @@ func GetVideo(router *gin.RouterGroup) {
 
 		fileName := photoprism.FileName(f.FileRoot, f.FileName)
 
-		if mf, err := photoprism.NewMediaFile(fileName); err != nil {
+		mf, err := photoprism.NewMediaFile(fileName)
+		if err != nil {
 			log.Errorf("video: file %s is missing", txt.Quote(f.FileName))
 			c.Data(http.StatusOK, "image/svg+xml", videoIconSvg)
 
@@ -69,6 +71,13 @@ func GetVideo(router *gin.RouterGroup) {
 			logError("video", f.Update("FileMissing", true))
 
 			return
+		}
+
+		conf := service.Config()
+		avcName := videoType.Format.FindFirst(mf.FileName(), []string{conf.SidecarPath(), fs.HiddenPath}, conf.OriginalsPath(), false)
+		mediaFile, err := photoprism.NewMediaFile(avcName)
+		if err == nil && mediaFile.IsVideo() {
+			fileName = mediaFile.FileName()
 		} else if f.FileCodec != string(videoType.Codec) {
 			conv := service.Convert()
 
